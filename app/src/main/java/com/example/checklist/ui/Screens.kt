@@ -1418,7 +1418,7 @@ fun ListCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = instance.name, style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp))
-                Text(text = "${instance.items.count { it.isChecked }}/${instance.items.size} items", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp))
+                Text(text = "${instance.items.count { !it.isChecked }}/${instance.items.size} items", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp))
             }
             if (onArchive != null) {
                 IconButton(onClick = onArchive, modifier = Modifier.size(48.dp)) {

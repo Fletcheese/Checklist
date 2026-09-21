@@ -81,6 +81,14 @@ class ChecklistWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.checklist_widget_layout)
             views.setTextViewText(R.id.widget_list_name, targetList?.name ?: "No active lists")
 
+            if (targetList != null) {
+                val uncheckedCount = targetList.items.count { !it.isChecked }
+                val totalCount = targetList.items.size
+                views.setTextViewText(R.id.widget_list_progress, "$uncheckedCount / $totalCount")
+            } else {
+                views.setTextViewText(R.id.widget_list_progress, "")
+            }
+
             val intent = Intent(context, MainActivity::class.java).apply {
                 action = "com.example.checklist.ACTION_OPEN_LIST_$appWidgetId"
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
