@@ -10,27 +10,42 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.checklist.data.ChecklistInstance
 import com.example.checklist.data.ChecklistItem
 import com.example.checklist.data.ChecklistRepository
@@ -43,6 +58,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 // Utility to skip leading emojis/spaces for sorting
 private fun getTemplateSortKey(name: String): String {
@@ -56,6 +72,106 @@ private fun isAutocompleteMatch(label: String, query: String): Boolean {
     return clean.split(Regex("\\s+"))
         .filter { it.isNotBlank() }
         .any { it.startsWith(query, ignoreCase = true) }
+}
+
+/**
+ * Drives a "drag to reorder" gesture for a [SnapshotStateList].
+ *
+ * The dragged item is moved within [items] live so surrounding rows can animate out of the
+ * way, but callers only find out the final (from, to) indices when the gesture ends - nothing
+ * is persisted to a repository until the finger lifts.
+ */
+private class DragReorderState<T : Any>(
+    private val items: SnapshotStateList<T>,
+    private val keyOf: (T) -> Any
+) {
+    var draggedKey by mutableStateOf<Any?>(null)
+        private set
+    private var draggedFromIndex = -1
+    var dragOffset by mutableFloatStateOf(0f)
+        private set
+    private var rowHeightPx = 1f
+
+    val isDragging: Boolean get() = draggedKey != null
+
+    fun start(item: T, index: Int, measuredRowHeightPx: Float) {
+        draggedKey = keyOf(item)
+        draggedFromIndex = index
+        dragOffset = 0f
+        rowHeightPx = measuredRowHeightPx.coerceAtLeast(1f)
+    }
+
+    fun offsetPxFor(key: Any): Float = if (key == draggedKey) dragOffset else 0f
+
+    fun onDrag(deltaY: Float) {
+        val key = draggedKey ?: return
+        dragOffset += deltaY
+        val currentIndex = items.indexOfFirst { keyOf(it) == key }
+        if (currentIndex == -1) return
+        val slots = Math.round(dragOffset / rowHeightPx)
+        if (slots == 0) return
+        val target = (currentIndex + slots).coerceIn(0, items.size - 1)
+        if (target != currentIndex) {
+            val moving = items.removeAt(currentIndex)
+            items.add(target, moving)
+            dragOffset -= (target - currentIndex) * rowHeightPx
+        }
+    }
+
+    /** Returns the (fromIndex, toIndex) the drag settled on, or null if it never moved. */
+    fun finish(): Pair<Int, Int>? {
+        val key = draggedKey ?: return null
+        val toIndex = items.indexOfFirst { keyOf(it) == key }
+        draggedKey = null
+        dragOffset = 0f
+        val fromIndex = draggedFromIndex
+        draggedFromIndex = -1
+        return if (toIndex == -1 || fromIndex == -1 || fromIndex == toIndex) null else fromIndex to toIndex
+    }
+
+    fun cancel() {
+        val key = draggedKey ?: return
+        val currentIndex = items.indexOfFirst { keyOf(it) == key }
+        if (currentIndex != -1 && currentIndex != draggedFromIndex && draggedFromIndex in items.indices) {
+            items.add(draggedFromIndex, items.removeAt(currentIndex))
+        }
+        draggedKey = null
+        dragOffset = 0f
+        draggedFromIndex = -1
+    }
+}
+
+/**
+ * Handle-only drag gesture: waits for a long press before starting the drag (so a quick tap or
+ * scroll passes through untouched), and consumes the initial press immediately so a long press
+ * that starts on the handle can never also trigger an ancestor's click/long-click handler.
+ */
+private fun Modifier.dragReorderHandle(
+    key: Any,
+    onDragStart: () -> Unit,
+    onDragDelta: (Float) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit
+): Modifier = this.pointerInput(key) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        down.consume()
+        val liftedEarly = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+            waitForUpOrCancellation()
+        }
+        if (liftedEarly == null) {
+            onDragStart()
+            val completed = try {
+                drag(down.id) { change ->
+                    change.consume()
+                    onDragDelta(change.positionChange().y)
+                }
+            } catch (c: kotlinx.coroutines.CancellationException) {
+                false
+            }
+            if (completed) onDragEnd() else onDragCancel()
+        }
+    }
 }
 
 private fun pinListWidget(context: Context, instanceId: String) {
@@ -371,7 +487,7 @@ fun SchemasScreen(modifier: Modifier = Modifier) {
                     if (currentSchemaId != null) {
                         allItems.sortedWith(
                             compareBy<ItemDefinition> { it.sortValues[currentSchemaId].isNullOrBlank() }.reversed()
-                            .thenBy { it.sortValues[currentSchemaId] ?: "" }
+                            .thenBy(Comparator { a, b -> ItemManager.compareSortStrings(a, b) }) { it.sortValues[currentSchemaId] ?: "" }
                             .thenBy { it.label }
                         )
                     } else allItems.toList()
@@ -665,13 +781,25 @@ fun EditListScreen(
                 }
             }
 
+            val localItems = remember(instance.items) { instance.items.toMutableStateList() }
+            val dragState = remember(localItems) { DragReorderState(localItems) { it.id } }
+            val rowHeightPx = remember { mutableMapOf<String, Float>() }
+            val haptic = LocalHapticFeedback.current
+            val context = LocalContext.current
+
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(instance.items, key = { it.id }) { item ->
+                items(localItems, key = { it.id }) { item ->
+                    val beingDragged = dragState.draggedKey == item.id
+                    val targetOffset = if (beingDragged) dragState.dragOffset else 0f
+                    val animatedOffset by animateFloatAsState(
+                        targetValue = targetOffset,
+                        animationSpec = tween(durationMillis = if (beingDragged) 0 else 150),
+                        label = "dragOffset"
+                    )
                     ChecklistItemRow(
                         item = item,
                         onToggle = {
                             if (isEditMode) {
-                                // Feedback: In edit mode, tapping an item launches edit pop-up
                                 itemToEdit = item
                             } else {
                                 ChecklistRepository.toggleItem(instanceId, item.id)
@@ -681,7 +809,47 @@ fun EditListScreen(
                         onLongClick = { itemToEdit = item },
                         onDelete = if (isEditMode) {
                             { ChecklistRepository.removeItemFromInstance(instanceId, item.id) }
-                        } else null
+                        } else null,
+                        isEditMode = isEditMode,
+                        rowModifier = Modifier
+                            .then(if (beingDragged) Modifier else Modifier.animateItem())
+                            .onSizeChanged { rowHeightPx[item.id] = it.height.toFloat() }
+                            .graphicsLayer {
+                                translationY = animatedOffset
+                                scaleX = if (beingDragged) 1.03f else 1f
+                                scaleY = if (beingDragged) 1.03f else 1f
+                                shadowElevation = if (beingDragged) 12f else 0f
+                            }
+                            .zIndex(if (beingDragged) 1f else 0f),
+                        dragHandleModifier = if (isEditMode) {
+                            Modifier.dragReorderHandle(
+                                key = item.id,
+                                onDragStart = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    dragState.start(item, localItems.indexOf(item), rowHeightPx[item.id] ?: 0f)
+                                },
+                                onDragDelta = { dragState.onDrag(it) },
+                                onDragEnd = {
+                                    val move = dragState.finish()
+                                    if (move != null) {
+                                        val (fromIndex, toIndex) = move
+                                        ChecklistRepository.reorderItem(instanceId, fromIndex, toIndex)
+                                        val movedItem = localItems.getOrNull(toIndex)
+                                        val schemaName = instance.appliedSortSchemaId?.let { id ->
+                                            ChecklistRepository.sortSchemas.find { it.id == id }?.name
+                                        }
+                                        val positionText = "position ${toIndex + 1} of ${localItems.size}"
+                                        val message = if (schemaName != null) {
+                                            "Moved \"${movedItem?.label}\" to $positionText (sorted by $schemaName)"
+                                        } else {
+                                            "Moved \"${movedItem?.label}\" to $positionText"
+                                        }
+                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                onDragCancel = { dragState.cancel() }
+                            )
+                        } else Modifier
                     )
                 }
             }
@@ -873,15 +1041,65 @@ fun EditTemplateScreen(
         }
     ) { padding ->
         val items = template.itemIds.mapNotNull { id -> ChecklistRepository.itemDefinitions.find { it.id == id } }
-        val sortedItems = items.sortedBy { it.sortValues[selectedSchemaId] ?: "" }
-        
+        val sortedItems = remember(items, selectedSchemaId) { 
+            items.sortedWith(
+                compareBy(Comparator { a, b -> ItemManager.compareSortStrings(a, b) }) { it.sortValues[selectedSchemaId] ?: "" }
+            )
+        }
+        val localItems = remember(sortedItems) { sortedItems.toMutableStateList() }
+        val dragState = remember(localItems) { DragReorderState(localItems) { it.id } }
+        val rowHeightPx = remember { mutableMapOf<String, Float>() }
+        val haptic = LocalHapticFeedback.current
+        val context = LocalContext.current
+
         LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
-            items(sortedItems, key = { it.id }) { def ->
+            items(localItems, key = { it.id }) { def ->
+                val beingDragged = dragState.draggedKey == def.id
+                val targetOffset = if (beingDragged) dragState.dragOffset else 0f
+                val animatedOffset by animateFloatAsState(
+                    targetValue = targetOffset,
+                    animationSpec = tween(durationMillis = if (beingDragged) 0 else 150),
+                    label = "dragOffset"
+                )
                 TemplateItemRow(
                     def = def,
                     schemaId = selectedSchemaId,
                     onDelete = { ChecklistRepository.removeItemFromTemplate(templateId, def.id) },
-                    onEdit = { itemToEditDef = def }
+                    onEdit = { itemToEditDef = def },
+                    rowModifier = Modifier
+                        .then(if (beingDragged) Modifier else Modifier.animateItem())
+                        .onSizeChanged { rowHeightPx[def.id] = it.height.toFloat() }
+                        .graphicsLayer {
+                            translationY = animatedOffset
+                            scaleX = if (beingDragged) 1.03f else 1f
+                            scaleY = if (beingDragged) 1.03f else 1f
+                            shadowElevation = if (beingDragged) 12f else 0f
+                        }
+                        .zIndex(if (beingDragged) 1f else 0f),
+                    dragHandleModifier = Modifier.dragReorderHandle(
+                        key = def.id,
+                        onDragStart = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            dragState.start(def, localItems.indexOf(def), rowHeightPx[def.id] ?: 0f)
+                        },
+                        onDragDelta = { dragState.onDrag(it) },
+                        onDragEnd = {
+                            val move = dragState.finish()
+                            val schemaId = selectedSchemaId
+                            if (move != null && schemaId != null) {
+                                val (fromIndex, toIndex) = move
+                                ChecklistRepository.reorderItemInSchema(schemaId, fromIndex, toIndex, sortedItems)
+                                val movedDef = localItems.getOrNull(toIndex)
+                                val schemaName = ChecklistRepository.sortSchemas.find { it.id == schemaId }?.name
+                                Toast.makeText(
+                                    context,
+                                    "Moved \"${movedDef?.label}\" to position ${toIndex + 1} of ${localItems.size} in $schemaName",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        onDragCancel = { dragState.cancel() }
+                    )
                 )
             }
         }
@@ -963,9 +1181,16 @@ fun EditTemplateScreen(
 }
 
 @Composable
-fun TemplateItemRow(def: ItemDefinition, schemaId: String?, onDelete: () -> Unit, onEdit: () -> Unit) {
+fun TemplateItemRow(
+    def: ItemDefinition,
+    schemaId: String?,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
+    rowModifier: Modifier = Modifier,
+    dragHandleModifier: Modifier = Modifier
+) {
     Surface(
-        modifier = Modifier
+        modifier = rowModifier
             .fillMaxWidth()
             .padding(vertical = 2.dp, horizontal = 8.dp)
             .clickable { onEdit() },
@@ -976,6 +1201,12 @@ fun TemplateItemRow(def: ItemDefinition, schemaId: String?, onDelete: () -> Unit
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Icon(
+                imageVector = Icons.Default.DragHandle,
+                contentDescription = "Reorder",
+                modifier = dragHandleModifier.padding(end = 8.dp).size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Column(Modifier.weight(1f)) {
                 Text(text = def.label, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp))
                 schemaId?.let { id ->
@@ -1238,13 +1469,16 @@ fun TemplateCard(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChecklistItemRow(
-    item: ChecklistItem, 
+    item: ChecklistItem,
     onToggle: () -> Unit,
     onLongClick: () -> Unit,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    isEditMode: Boolean = false,
+    rowModifier: Modifier = Modifier,
+    dragHandleModifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = Modifier
+        modifier = rowModifier
             .fillMaxWidth()
             .combinedClickable(
                 onClick = onToggle,
@@ -1258,6 +1492,14 @@ fun ChecklistItemRow(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (isEditMode) {
+                Icon(
+                    imageVector = Icons.Default.DragHandle,
+                    contentDescription = "Reorder",
+                    modifier = dragHandleModifier.padding(end = 8.dp).size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Checkbox(
                 checked = item.isChecked, 
                 onCheckedChange = { onToggle() },
