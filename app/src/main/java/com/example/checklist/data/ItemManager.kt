@@ -1,6 +1,7 @@
 package com.example.checklist.data
 
 import androidx.compose.runtime.mutableStateListOf
+import java.util.Locale
 
 object ItemManager {
     val itemDefinitions = mutableStateListOf<ItemDefinition>()
@@ -58,7 +59,11 @@ object ItemManager {
                 if (instance.appliedSortSchemaId == schemaId) {
                     val newItems = instance.items.map { item ->
                         if (item.definitionId == definitionId) item.copy(sortString = value.trim()) else item
-                    }.sortedWith(compareBy({ it.isChecked }, { it.sortString }, { getSortKey(it.label) }))
+                    }.sortedWith(
+                        compareBy<ChecklistItem> { it.isChecked }
+                        .thenBy(Comparator { a, b -> compareSortStrings(a, b) }) { it.sortString }
+                        .thenBy { getSortKey(it.label) }
+                    )
                     InstanceManager.instances[instIdx] = instance.copy(items = newItems)
                 }
             }
@@ -75,5 +80,38 @@ object ItemManager {
             }
         }
         ChecklistRepository.save()
+    }
+
+    fun reorderItemInSchema(schemaId: String, fromIndex: Int, toIndex: Int, sortedItems: List<ItemDefinition>) {
+        if (fromIndex !in sortedItems.indices || toIndex !in sortedItems.indices) return
+        
+        val list = sortedItems.toMutableList()
+        val item = list.removeAt(fromIndex)
+        list.add(toIndex, item)
+        
+        val prevItem = if (toIndex > 0) list[toIndex - 1] else null
+        val nextItem = if (toIndex < list.size - 1) list[toIndex + 1] else null
+        
+        val prevVal = prevItem?.sortValues?.get(schemaId)?.toDoubleOrNull()
+        val nextVal = nextItem?.sortValues?.get(schemaId)?.toDoubleOrNull()
+        
+        val newVal = when {
+            prevItem == null && nextItem == null -> 1000.0
+            prevItem == null -> (nextVal ?: 1000.0) / 2.0
+            nextItem == null -> (prevVal ?: 0.0) + 1000.0
+            else -> ((prevVal ?: 0.0) + (nextVal ?: 0.0)) / 2.0
+        }
+        
+        val newValStr = String.format(Locale.US, "%.4f", newVal)
+        updateSortValue(item.id, schemaId, newValStr)
+    }
+
+    fun compareSortStrings(s1: String?, s2: String?): Int {
+        val str1 = s1 ?: ""
+        val str2 = s2 ?: ""
+        val d1 = str1.toDoubleOrNull()
+        val d2 = str2.toDoubleOrNull()
+        return if (d1 != null && d2 != null) d1.compareTo(d2)
+        else str1.compareTo(str2)
     }
 }

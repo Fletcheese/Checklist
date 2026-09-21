@@ -116,6 +116,8 @@ object ChecklistRepository {
     fun addTemplateToInstance(instanceId: String, templateId: String) = InstanceManager.addTemplateToInstance(instanceId, templateId)
     fun updateItemLabelInInstance(instanceId: String, itemId: String, newLabel: String) = 
         InstanceManager.updateItemLabelInInstance(instanceId, itemId, newLabel)
+    fun reorderItem(instanceId: String, fromIndex: Int, toIndex: Int) =
+        InstanceManager.reorderItem(instanceId, fromIndex, toIndex)
 
     // Template Management Delegations
     fun createTemplate(name: String) = TemplateManager.createTemplate(name)
@@ -132,6 +134,8 @@ object ChecklistRepository {
     fun updateDefinitionLabel(id: String, newLabel: String) = ItemManager.updateDefinitionLabel(id, newLabel)
     fun updateSortValue(definitionId: String, schemaId: String, value: String) = ItemManager.updateSortValue(definitionId, schemaId, value)
     fun deleteDefinition(id: String) = ItemManager.deleteDefinition(id)
+    fun reorderItemInSchema(schemaId: String, fromIndex: Int, toIndex: Int, sortedItems: List<ItemDefinition>) =
+        ItemManager.reorderItemInSchema(schemaId, fromIndex, toIndex, sortedItems)
 
     fun mergeAndClean() {
         val idMap = mutableMapOf<String, String>()
@@ -179,9 +183,7 @@ object ChecklistRepository {
         schemas.forEach { sb.append("\t${it.name}") }
         sb.append("\n")
 
-        val exportItems = ItemManager.itemDefinitions.filter { def ->
-            TemplateManager.templates.any { it.itemIds.contains(def.id) } || def.sortValues.isNotEmpty()
-        }.sortedBy { ItemManager.getSortKey(it.label) }
+        val exportItems = ItemManager.itemDefinitions.toList().sortedBy { ItemManager.getSortKey(it.label) }
 
         exportItems.forEach { def ->
             sb.append(def.label)
