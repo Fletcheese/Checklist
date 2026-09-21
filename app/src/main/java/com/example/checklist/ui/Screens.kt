@@ -163,8 +163,9 @@ private fun Modifier.dragReorderHandle(
             onDragStart()
             val completed = try {
                 drag(down.id) { change ->
+                    val delta = change.positionChange().y
                     change.consume()
-                    onDragDelta(change.positionChange().y)
+                    onDragDelta(delta)
                 }
             } catch (c: kotlinx.coroutines.CancellationException) {
                 false
