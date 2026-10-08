@@ -53,14 +53,16 @@ object ExternalCommands {
         }
     }
 
-    /** Active lists first, then archived; the most recently modified wins a tie. */
+    /**
+     * Active (non-archived) lists only: archived lists are finished shopping trips, and reviving
+     * one by voice would be a surprise. The most recently modified wins a tie.
+     */
     fun findList(name: String): ChecklistInstance? {
         val key = listKey(name)
         if (key.isEmpty()) return null
         return InstanceManager.instances
-            .filter { listKey(it.name) == key }
-            .sortedWith(compareBy<ChecklistInstance> { it.isArchived }.thenByDescending { it.lastModified })
-            .firstOrNull()
+            .filter { !it.isArchived && listKey(it.name) == key }
+            .maxByOrNull { it.lastModified }
     }
 
     fun activeListNames(): List<String> =
@@ -95,13 +97,11 @@ object ExternalCommands {
             }
             checked != null -> {
                 ChecklistRepository.toggleItem(instance.id, checked.id)
-                ChecklistRepository.unarchiveIfNeeded(instance.id)
                 out.putString(KEY_RESULT, RESULT_UNCHECKED_AGAIN)
                 out.putString(KEY_ITEM, checked.label)
             }
             else -> {
                 ChecklistRepository.addItemToInstance(instance.id, item)
-                ChecklistRepository.unarchiveIfNeeded(instance.id)
                 out.putString(KEY_RESULT, RESULT_ADDED)
             }
         }

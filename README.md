@@ -57,7 +57,7 @@ The debug build is signed with the default `~/.android/debug.keystore`. To sign 
 
 ## External API (TalkToMe voice commands)
 
-Another app (TalkToMe, `dev.fletcheese.talktome`) can add items to an existing list and read the list names, with no UI and the screen off. A list is never created implicitly. List names match case-insensitively, ignoring punctuation, a leading "the"/"my", a trailing "list" and a simple plural ("the grocery list" = "Groceries"). Item names match the way the app already de-duplicates items (letters and digits only, case-insensitive, trailing "s" ignored).
+Another app (TalkToMe, `dev.fletcheese.talktome`) can add items to an existing, non-archived list and read the list names, with no UI and the screen off. A list is never created implicitly. List names match case-insensitively, ignoring punctuation, a leading "the"/"my", a trailing "list" and a simple plural ("the grocery list" = "Groceries"). Item names match the way the app already de-duplicates items (letters and digits only, case-insensitive, trailing "s" ignored).
 
 Result values: `added`, `already_there` (an unchecked item with that name exists, nothing changed), `unchecked_again` (it existed checked, now unchecked), `no_such_list` (with `lists`, the active list names), `bad_request`.
 
