@@ -28,6 +28,21 @@ android {
     }
 
     signingConfigs {
+        // Optional override of the debug key, from the gitignored local.properties:
+        //   debug.storeFile=C:\\Users\\me\\.android\\debug.keystore
+        // TalkToMe's signature permission only works when both apps share a signing key.
+        val localProps = Properties().apply {
+            val f = rootProject.file("local.properties")
+            if (f.exists()) f.inputStream().use { load(it) }
+        }
+        localProps.getProperty("debug.storeFile")?.let { path ->
+            getByName("debug") {
+                storeFile = file(path)
+                storePassword = localProps.getProperty("debug.storePassword", "android")
+                keyAlias = localProps.getProperty("debug.keyAlias", "androiddebugkey")
+                keyPassword = localProps.getProperty("debug.keyPassword", "android")
+            }
+        }
         if (keystorePropertiesFile.exists()) {
             create("release") {
                 storeFile = file(keystoreProperties["storeFile"] as String)
