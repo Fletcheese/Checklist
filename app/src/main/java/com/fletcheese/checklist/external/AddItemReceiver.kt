@@ -1,4 +1,4 @@
-package com.example.checklist.external
+package com.fletcheese.checklist.external
 
 import android.app.Activity
 import android.app.PendingIntent

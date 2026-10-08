@@ -1,4 +1,4 @@
-package com.example.checklist.external
+package com.fletcheese.checklist.external
 
 import android.content.ContentProvider
 import android.content.ContentValues
@@ -8,8 +8,8 @@ import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
 import android.os.Process
-import com.example.checklist.data.ChecklistRepository
-import com.example.checklist.data.InstanceManager
+import com.fletcheese.checklist.data.ChecklistRepository
+import com.fletcheese.checklist.data.InstanceManager
 
 /**
  * Read-only view of the lists, plus a synchronous add-item call, for TalkToMe.

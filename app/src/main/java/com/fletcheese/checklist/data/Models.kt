@@ -1,4 +1,4 @@
-package com.example.checklist.data
+package com.fletcheese.checklist.data
 
 import kotlinx.serialization.Serializable
 import java.util.UUID

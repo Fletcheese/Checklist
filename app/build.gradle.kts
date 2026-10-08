@@ -14,11 +14,11 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.checklist"
+    namespace = "com.fletcheese.checklist"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.checklist"
+        applicationId = "com.fletcheese.checklist"
         minSdk = 25
         targetSdk = 36
         versionCode = 1

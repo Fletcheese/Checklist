@@ -22,7 +22,7 @@ A native Android app for building and running grocery (or any recurring) checkli
 ## Project structure
 
 ```
-app/src/main/java/com/example/checklist/
+app/src/main/java/com/fletcheese/checklist/
 ├── MainActivity.kt          # App entry point
 ├── data/
 │   ├── Models.kt             # Serializable data models (items, templates, instances, schemas)

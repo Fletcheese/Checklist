@@ -1,11 +1,11 @@
-package com.example.checklist.data
+package com.fletcheese.checklist.data
 
 import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.example.checklist.widget.ChecklistWidget
+import com.fletcheese.checklist.widget.ChecklistWidget
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File

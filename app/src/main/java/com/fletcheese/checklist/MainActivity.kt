@@ -1,4 +1,4 @@
-package com.example.checklist
+package com.fletcheese.checklist
 
 import android.content.Intent
 import android.os.Bundle
@@ -23,14 +23,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.example.checklist.data.ChecklistRepository
-import com.example.checklist.ui.ArchiveScreen
-import com.example.checklist.ui.EditListScreen
-import com.example.checklist.ui.EditTemplateScreen
-import com.example.checklist.ui.HomeScreen
-import com.example.checklist.ui.SchemasScreen
-import com.example.checklist.ui.TemplatesScreen
-import com.example.checklist.ui.theme.ChecklistTheme
+import com.fletcheese.checklist.data.ChecklistRepository
+import com.fletcheese.checklist.ui.ArchiveScreen
+import com.fletcheese.checklist.ui.EditListScreen
+import com.fletcheese.checklist.ui.EditTemplateScreen
+import com.fletcheese.checklist.ui.HomeScreen
+import com.fletcheese.checklist.ui.SchemasScreen
+import com.fletcheese.checklist.ui.TemplatesScreen
+import com.fletcheese.checklist.ui.theme.ChecklistTheme
 import kotlinx.serialization.Serializable
 
 class MainActivity : ComponentActivity() {

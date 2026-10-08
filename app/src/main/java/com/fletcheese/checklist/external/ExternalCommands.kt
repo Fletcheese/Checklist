@@ -1,13 +1,13 @@
-package com.example.checklist.external
+package com.fletcheese.checklist.external
 
 import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import com.example.checklist.data.ChecklistInstance
-import com.example.checklist.data.ChecklistRepository
-import com.example.checklist.data.InstanceManager
-import com.example.checklist.data.ItemManager
+import com.fletcheese.checklist.data.ChecklistInstance
+import com.fletcheese.checklist.data.ChecklistRepository
+import com.fletcheese.checklist.data.InstanceManager
+import com.fletcheese.checklist.data.ItemManager
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference

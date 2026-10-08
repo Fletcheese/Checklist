@@ -1,4 +1,4 @@
-package com.example.checklist.ui.theme
+package com.fletcheese.checklist.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
