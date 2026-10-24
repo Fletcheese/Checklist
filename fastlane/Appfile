@@ -1,0 +1,2 @@
+json_key_file(ENV["PLAY_JSON_KEY_FILE"] || File.expand_path("~/keystores/checklist-play-service-account.json"))
+package_name("com.fletcheese.checklist")

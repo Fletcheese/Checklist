@@ -16,3 +16,14 @@ local.properties
 keystore.properties
 .kotlin/
 back-ups/
+
+# fastlane
+/fastlane/report.xml
+/fastlane/Preview.html
+/fastlane/screenshots/**/*.png
+/fastlane/test_output
+*.jks
+*-service-account.json
+.bundle/
+vendor/bundle/
+

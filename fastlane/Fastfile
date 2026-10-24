@@ -1,0 +1,51 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build a signed release AAB (uses JBR 21, see CLAUDE.md JBR gotcha)"
+  lane :build do
+    ENV["JAVA_HOME"] = ENV["GRADLE_JAVA_HOME"] || File.expand_path("~/.jdks/jbr-21.0.11")
+    gradle(
+      task: "bundleRelease",
+      project_dir: "."
+    )
+  end
+
+  desc "Build and push to the internal testing track"
+  lane :internal do
+    build
+    upload_to_play_store(
+      track: "internal",
+      aab: "app/build/outputs/bundle/release/app-release.aab",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Promote whatever is live on internal to production"
+  lane :promote_to_production do
+    upload_to_play_store(
+      track: "internal",
+      track_promote_to: "production",
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Build and push straight to production (use with care)"
+  lane :release do
+    build
+    upload_to_play_store(
+      track: "production",
+      aab: "app/build/outputs/bundle/release/app-release.aab",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end
