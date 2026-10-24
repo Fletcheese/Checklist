@@ -29,7 +29,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.example.checklist.ACTION_PIN_WIDGET" />
+                <action android:name="com.fletcheese.checklist.ACTION_PIN_WIDGET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

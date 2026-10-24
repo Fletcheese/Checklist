@@ -1,4 +1,4 @@
-package com.example.checklist.widget
+package com.fletcheese.checklist.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -8,9 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.RemoteViews
-import com.example.checklist.MainActivity
-import com.example.checklist.R
-import com.example.checklist.data.ChecklistRepository
+import com.fletcheese.checklist.MainActivity
+import com.fletcheese.checklist.R
+import com.fletcheese.checklist.data.ChecklistRepository
 
 class ChecklistWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -41,7 +41,7 @@ class ChecklistWidget : AppWidgetProvider() {
     }
 
     companion object {
-        const val ACTION_PIN_CONFIRM = "com.example.checklist.ACTION_PIN_WIDGET"
+        const val ACTION_PIN_CONFIRM = "com.fletcheese.checklist.ACTION_PIN_WIDGET"
         const val EXTRA_INSTANCE_ID = "instanceId"
         private const val PREFS_NAME = "ChecklistWidgetPrefs"
 
@@ -90,7 +90,7 @@ class ChecklistWidget : AppWidgetProvider() {
             }
 
             val intent = Intent(context, MainActivity::class.java).apply {
-                action = "com.example.checklist.ACTION_OPEN_LIST_$appWidgetId"
+                action = "com.fletcheese.checklist.ACTION_OPEN_LIST_$appWidgetId"
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 targetList?.let { putExtra("instanceId", it.id) }
             }

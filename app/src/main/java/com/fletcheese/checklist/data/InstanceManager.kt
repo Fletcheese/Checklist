@@ -1,8 +1,9 @@
-package com.example.checklist.data
+package com.fletcheese.checklist.data
 
 import androidx.compose.runtime.mutableStateListOf
+import java.util.Locale
 
-object ListManager {
+object InstanceManager {
     val instances = mutableStateListOf<ChecklistInstance>()
 
     fun addItemToInstance(instanceId: String, label: String) {
@@ -21,10 +22,20 @@ object ListManager {
             
             val newItems = (instance.items + newItem).sortedWith(
                 compareBy<ChecklistItem> { it.isChecked }
-                .thenBy { it.sortString }
+                .thenBy(Comparator { a, b -> ItemManager.compareSortStrings(a, b) }) { it.sortString }
                 .thenBy { ItemManager.getSortKey(it.label) }
             )
             
+            instances[index] = instance.copy(items = newItems, lastModified = System.currentTimeMillis())
+            ChecklistRepository.save()
+        }
+    }
+
+    fun removeItemFromInstance(instanceId: String, itemId: String) {
+        val index = instances.indexOfFirst { it.id == instanceId }
+        if (index != -1) {
+            val instance = instances[index]
+            val newItems = instance.items.filter { it.id != itemId }
             instances[index] = instance.copy(items = newItems, lastModified = System.currentTimeMillis())
             ChecklistRepository.save()
         }
@@ -49,7 +60,7 @@ object ListManager {
             val combinedItems = (instance.items + newItemsFromTemplate).distinctBy { ItemManager.normalizeLabel(it.label) }
             val sortedItems = combinedItems.sortedWith(
                 compareBy<ChecklistItem> { it.isChecked }
-                .thenBy { it.sortString }
+                .thenBy(Comparator { a, b -> ItemManager.compareSortStrings(a, b) }) { it.sortString }
                 .thenBy { ItemManager.getSortKey(it.label) }
             )
             
@@ -96,7 +107,11 @@ object ListManager {
                 sortString = sortString,
                 definitionId = itemId
             )
-        }.sortedWith(compareBy({ it.isChecked }, { it.sortString }, { ItemManager.getSortKey(it.label) }))
+        }.sortedWith(
+            compareBy<ChecklistItem> { it.isChecked }
+            .thenBy(Comparator { a, b -> ItemManager.compareSortStrings(a, b) }) { it.sortString }
+            .thenBy { ItemManager.getSortKey(it.label) }
+        )
 
         val newInstance = ChecklistInstance(
             name = name,
@@ -126,7 +141,7 @@ object ListManager {
             
             val sortedItems = newItems.sortedWith(
                 compareBy<ChecklistItem> { it.isChecked }
-                .thenBy { it.sortString }
+                .thenBy(Comparator { a, b -> ItemManager.compareSortStrings(a, b) }) { it.sortString }
                 .thenBy { ItemManager.getSortKey(it.label) }
             )
 
@@ -175,6 +190,42 @@ object ListManager {
         if (index != -1) {
             instances[index] = instances[index].copy(isArchived = true, lastModified = System.currentTimeMillis())
             ChecklistRepository.save()
+        }
+    }
+
+    fun reorderItem(instanceId: String, fromIndex: Int, toIndex: Int) {
+        val index = instances.indexOfFirst { it.id == instanceId }
+        if (index != -1) {
+            val instance = instances[index]
+            val items = instance.items.toMutableList()
+            if (fromIndex !in items.indices || toIndex !in items.indices) return
+            
+            val item = items.removeAt(fromIndex)
+            items.add(toIndex, item)
+            
+            val schemaId = instance.appliedSortSchemaId
+            if (schemaId != null) {
+                val prevItem = if (toIndex > 0) items[toIndex - 1] else null
+                val nextItem = if (toIndex < items.size - 1) items[toIndex + 1] else null
+                
+                val prevVal = prevItem?.sortString?.toDoubleOrNull()
+                val nextVal = nextItem?.sortString?.toDoubleOrNull()
+                
+                val newVal = when {
+                    prevItem == null && nextItem == null -> 1000.0
+                    prevItem == null -> (nextVal ?: 1000.0) / 2.0
+                    nextItem == null -> (prevVal ?: 0.0) + 1000.0
+                    else -> ((prevVal ?: 0.0) + (nextVal ?: 0.0)) / 2.0
+                }
+                
+                val newValStr = String.format(Locale.US, "%.4f", newVal)
+                item.definitionId?.let { defId ->
+                    ItemManager.updateSortValue(defId, schemaId, newValStr)
+                }
+            } else {
+                instances[index] = instance.copy(items = items, lastModified = System.currentTimeMillis())
+                ChecklistRepository.save()
+            }
         }
     }
 

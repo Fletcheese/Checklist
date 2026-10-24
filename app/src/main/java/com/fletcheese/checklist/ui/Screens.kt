@@ -1,4 +1,4 @@
-package com.example.checklist.ui
+package com.fletcheese.checklist.ui
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -46,14 +46,14 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.example.checklist.data.ChecklistInstance
-import com.example.checklist.data.ChecklistItem
-import com.example.checklist.data.ChecklistRepository
-import com.example.checklist.data.ChecklistTemplate
-import com.example.checklist.data.ItemDefinition
-import com.example.checklist.data.ItemManager
-import com.example.checklist.data.SortSchema
-import com.example.checklist.widget.ChecklistWidget
+import com.fletcheese.checklist.data.ChecklistInstance
+import com.fletcheese.checklist.data.ChecklistItem
+import com.fletcheese.checklist.data.ChecklistRepository
+import com.fletcheese.checklist.data.ChecklistTemplate
+import com.fletcheese.checklist.data.ItemDefinition
+import com.fletcheese.checklist.data.ItemManager
+import com.fletcheese.checklist.data.SortSchema
+import com.fletcheese.checklist.widget.ChecklistWidget
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

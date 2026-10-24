@@ -1,4 +1,4 @@
-package com.example.checklist.data
+package com.fletcheese.checklist.data
 
 import androidx.compose.runtime.mutableStateListOf
 import java.util.Locale
