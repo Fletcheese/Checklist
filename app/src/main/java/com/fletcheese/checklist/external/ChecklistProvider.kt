@@ -15,8 +15,8 @@ import com.fletcheese.checklist.data.InstanceManager
  * Read-only view of the lists, plus a synchronous add-item call, for TalkToMe.
  *
  *   content://com.fletcheese.checklist.provider/lists
- *     columns: _id (list UUID), name, unchecked, total, archived (0/1)
- *   ContentResolver.call(uri, "add_item", null, Bundle{list, item}) -> Bundle{result, list, item, lists?}
+ *     columns: _id (list UUID), name, unchecked, total, archived (0/1), primary (0/1: where an unnamed voice add goes)
+ *   ContentResolver.call(uri, "add_item", null, Bundle{list, item}) -> Bundle{result, list, item, speak, list_how, score, heard_list, heard_item, lists?}
  *
  * Guard: the caller's UID is checked on every call. Allowed: this app, TalkToMe
  * (dev.fletcheese.talktome), adb shell (uid 2000) and root. Everyone else gets SecurityException.
@@ -42,11 +42,13 @@ class ChecklistProvider : ContentProvider() {
         val ctx = context ?: return null
         val rows = ExternalCommands.onMain {
             ChecklistRepository.initialize(ctx)
+            val primary = ExternalCommands.primaryListId(ctx)
             InstanceManager.instances.map { inst ->
                 arrayOf<Any>(
                     inst.id, inst.name,
                     inst.items.count { !it.isChecked }, inst.items.size,
-                    if (inst.isArchived) 1 else 0
+                    if (inst.isArchived) 1 else 0,
+                    if (inst.id == primary) 1 else 0
                 )
             }
         }
@@ -87,6 +89,6 @@ class ChecklistProvider : ContentProvider() {
         private const val SHELL_UID = 2000
         private const val ROOT_UID = 0
         private val ALLOWED_PACKAGES = setOf("dev.fletcheese.talktome")
-        private val COLUMNS = arrayOf("_id", "name", "unchecked", "total", "archived")
+        private val COLUMNS = arrayOf("_id", "name", "unchecked", "total", "archived", "primary")
     }
 }

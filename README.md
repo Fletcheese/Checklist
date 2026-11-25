@@ -57,9 +57,15 @@ The debug build is signed with the default `~/.android/debug.keystore`. To sign 
 
 ## External API (TalkToMe voice commands)
 
-Another app (TalkToMe, `dev.fletcheese.talktome`) can add items to an existing, non-archived list and read the list names, with no UI and the screen off. A list is never created implicitly. List names match case-insensitively, ignoring punctuation, a leading "the"/"my", a trailing "list" and a simple plural ("the grocery list" = "Groceries"). Item names match the way the app already de-duplicates items (letters and digits only, case-insensitive, trailing "s" ignored).
+Another app (TalkToMe, `dev.fletcheese.talktome`) can add items to an existing, non-archived list and read the list names, with no UI and the screen off. A list is never created implicitly. All matching lives here, in `external/VoiceMatch.kt` (unit tested in `VoiceMatchTest`), so every caller gets the same behaviour.
 
-Result values: `added`, `already_there` (an unchecked item with that name exists, nothing changed), `unchecked_again` (it existed checked, now unchecked), `no_such_list` (with `lists`, the active list names), `bad_request`.
+**Which list.** A blank `list` (or "list", "my list", "shopping list") means the **primary list**. A named list matches case-insensitively, ignoring punctuation, a leading "the"/"my", a trailing "list" and a simple plural ("the grocery list" = "Groceries"), then by likeness ("grosery"). A name that matches no active list, or two lists equally well, falls back to the primary list, and the spoken reply says so ("No walmart list. Added ...").
+
+**The primary list** is, in order: the list pinned to a home-screen widget (if active); else the remembered primary (if still active); else the most recently changed active list, which is then remembered (`shared_prefs/VoiceAddPrefs.xml`). It is remembered so that a voice add to another list doesn't move it. `/lists` reports it in the `primary` column. To change it, pin a widget to the list you want.
+
+**Which item.** Names are compared ignoring case, emoji, punctuation, spaces, a plural "s", leading filler ("some", "a") and bracketed parts ("Oatmilk (Oatly)" also answers to "oatmilk" and "oatly"), with a similarity of 1 minus the edit distance over the longer length. `VoiceMatch.MATCH_THRESHOLD` (0.85) is the one knob: a word of seven letters or more may be one letter out ("yoghurt" = "Yogurt"); shorter words must match exactly ("rice" is not "Ice"). The order is: an item already on the list (unchecked first), then the item library (which holds every template's items), else a new item.
+
+Result values: `added_new` (a new item), `added_from_library` (an existing definition, so its store order carries over), `already_there` (an unchecked item matched, nothing changed), `unchecked_again` (it matched a checked item, now unchecked), `no_such_list` (no active lists at all, with `lists`), `bad_request`. Every result has `speak`, a sentence to say back as it is ("Oatmilk Oatly is already on Groceries."), plus `list_how` (`primary`, `named`, `like`, `fallback`), `score`, `heard_list` and `heard_item`.
 
 Every write goes through the repository, which saves and refreshes the home-screen widget; an open UI sees the change at once because it observes the same Compose state.
 
@@ -68,13 +74,14 @@ Every write goes through the repository, which saves and refreshes the home-scre
 ```kotlin
 val uri = Uri.parse("content://com.fletcheese.checklist.provider")
 val out: Bundle? = contentResolver.call(uri, "add_item", null, bundleOf("list" to "groceries", "item" to "milk"))
-out?.getString("result")   // "added" | "already_there" | "unchecked_again" | "no_such_list" | "bad_request"
-out?.getString("list")     // the list's real name when matched
-out?.getString("item")     // the item's stored label when it already existed
+out?.getString("result")   // "added_new" | "added_from_library" | "already_there" | "unchecked_again" | "no_such_list" | "bad_request"
+out?.getString("list")     // the list's real name
+out?.getString("item")     // the item's label as stored
+out?.getString("speak")    // the sentence to say back
 out?.getStringArrayList("lists") // on no_such_list
 ```
 
-List names and counts: query `content://com.fletcheese.checklist.provider/lists`, columns `_id` (list id), `name`, `unchecked`, `total`, `archived` (0/1).
+List names and counts: query `content://com.fletcheese.checklist.provider/lists`, columns `_id` (list id), `name`, `unchecked`, `total`, `archived` (0/1), `primary` (0/1).
 
 Guard: the provider checks `Binder.getCallingUid()` on every call and allows only this app, the package `dev.fletcheese.talktome`, adb shell (uid 2000) and root; anyone else gets a `SecurityException`. Weakness: it trusts the package name, so any app installed under that name (only possible while the real TalkToMe is not installed) would be let in.
 
@@ -104,6 +111,7 @@ Guard: the receiver requires `com.fletcheese.checklist.permission.ADD_ITEM`, `pr
 ```
 adb shell content query --uri content://com.fletcheese.checklist.provider/lists
 adb shell content call --uri content://com.fletcheese.checklist.provider --method add_item --extra list:s:groceries --extra item:s:milk
+adb shell content call --uri content://com.fletcheese.checklist.provider --method add_item --extra list:s: --extra "item:s:oat\ milk"
 ```
 
 ## Status
