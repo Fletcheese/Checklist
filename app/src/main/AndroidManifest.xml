@@ -4,6 +4,12 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Lets TalkToMe add items by voice. Signature level: the caller must be signed with the same key. -->
+    <permission
+        android:name="com.fletcheese.checklist.permission.ADD_ITEM"
+        android:label="Add items to Checklist++ lists"
+        android:protectionLevel="signature" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -35,6 +41,20 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/checklist_widget_info" />
         </receiver>
+
+        <!-- Headless add-item endpoint for TalkToMe; no activity, so the screen stays off. -->
+        <receiver android:name=".external.AddItemReceiver"
+            android:exported="true"
+            android:permission="com.fletcheese.checklist.permission.ADD_ITEM">
+            <intent-filter>
+                <action android:name="com.fletcheese.checklist.action.ADD_ITEM" />
+            </intent-filter>
+        </receiver>
+
+        <!-- List names/counts and a synchronous add_item call; caller UID checked in code. -->
+        <provider android:name=".external.ChecklistProvider"
+            android:authorities="com.fletcheese.checklist.provider"
+            android:exported="true" />
     </application>
 
 </manifest>

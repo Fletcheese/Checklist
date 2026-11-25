@@ -54,6 +54,13 @@ class ChecklistWidget : AppWidgetProvider() {
             }
         }
 
+        /** The lists pinned to the home-screen widgets that exist now, for the voice "primary list" (VoiceMatch). */
+        fun widgetListIds(context: Context): List<String> {
+            val ids = AppWidgetManager.getInstance(context)
+                .getAppWidgetIds(ComponentName(context, ChecklistWidget::class.java))
+            return ids.toList().mapNotNull { id -> getWidgetInstanceId(context, id) }
+        }
+
         private fun saveWidgetInstanceId(context: Context, appWidgetId: Int, instanceId: String) {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
