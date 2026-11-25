@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Regenerates store-assets/icon-512.png and store-assets/feature-graphic-1024x500.png
-# from the app's own adaptive-icon vector layers and Material theme colors.
+# Regenerates store-assets/feature-graphic-1024x500.png from store-assets/icon-512.png
+# and the app's Material theme colors (icon-512.png itself is rendered elsewhere; see step 1).
 #
 # Requirements: rsvg-convert, ImageMagick (`magick`), a sans-serif font (Noto Sans used here).
 #
@@ -18,31 +18,13 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 # ---------------------------------------------------------------------------
-# 1. App icon: composite the adaptive icon's background + foreground vector
-#    layers (app/src/main/res/drawable/ic_launcher_{background,foreground}.xml)
-#    at full resolution, flattened to a plain 512x512 PNG for the Play Store.
+# 1. App icon: icon-512.png is no longer drawn here. Since 2026-11-25 (the
+#    "check plus plus" icon: a gradient-filled brush path on the FletchTunes
+#    gradient) it is rendered from the adaptive-icon layers by the icon
+#    generator in fletcheese-dev (apps/icons/2026-11-25/generator): the inner
+#    72dp of the 108dp layers, full-bleed, 512x512. This script reads it as is.
 # ---------------------------------------------------------------------------
-cat > "$WORK/background.svg" << 'EOF'
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108">
-  <path fill="#000000" d="M0,0h108v108h-108z" />
-</svg>
-EOF
-
-cat > "$WORK/foreground.svg" << 'EOF'
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108">
-  <g transform="translate(14,14)">
-    <path fill="none" stroke="#4CAF50" stroke-width="3.5"
-          d="M40,40m-32,0a32,32 0,1 1,64 0a32,32 0,1 1,-64 0" />
-    <path fill="none" stroke="#4CAF50" stroke-width="2.5"
-          stroke-linecap="round" stroke-linejoin="round"
-          d="M28,40l8,8l16,-16" />
-  </g>
-</svg>
-EOF
-
-rsvg-convert -w 512 -h 512 "$WORK/background.svg" -o "$WORK/bg.png"
-rsvg-convert -w 512 -h 512 "$WORK/foreground.svg" -o "$WORK/fg.png"
-magick "$WORK/bg.png" "$WORK/fg.png" -composite "icon-512.png"
+test -f "icon-512.png"
 
 # Smaller copy of the icon used inside the feature graphic.
 magick "icon-512.png" -resize 300x300 "$WORK/icon-300.png"

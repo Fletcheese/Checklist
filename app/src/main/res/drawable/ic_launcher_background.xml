@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#000000"
-        android:pathData="M0,0h108v108h-108z" />
-</vector>
+<!-- FletchTunes' launcher background: a linear fade from slate #3a434b at the top right to near-black #181c1f at the bottom left (GradientDrawable angle 225). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="225"
+        android:startColor="#3a434b"
+        android:endColor="#181c1f"
+        android:type="linear" />
+</shape>
